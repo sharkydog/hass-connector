@@ -42,6 +42,44 @@ public function setDefaultTimeout(int $timeout);
 public function GET(string $endpoint, ?int $timeout=null): React\Promise\PromiseInterface;
 public function POST(string $endpoint, ?\stdClass $data=null, ?int $timeout=null): React\Promise\PromiseInterface;
 ```
+- $url is the base rest api url - `http://192.168.1.123:8123/api`
+- $endpoint is path after `/api/` in docs above - `states/<entity_id>`
+- $timeout is in seconds, can be 0 to wait forwever
+- $data is a `\stdClass` with the same structure as required for the endpoint, shown as json in docs
+
+Example
+```php
+use SharkyDog\HASS;
+
+$url = 'http://192.168.1.123:8123/api';
+$token = 'xxxxxxx';
+$hass = new HASS\ClientREST($url, $token);
+
+// === GET ===
+$promise = $hass->GET('states/input_boolean.test_toggle');
+$promise = $promise->then(function($result) {
+    print_r($result);
+});
+$promise = $promise->catch(function(\Exception $e) {
+    print_r(['GET error', $e->getMessage(), $e->getCode()]);
+});
+// cancelling the promise will abort the request
+//$promise->cancel();
+
+// === POST ===
+$hass->POST(
+    'states/input_boolean.test_toggle',
+    (object)['state' => 'on']
+)->then(function($result) {
+  print_r($result);
+})->catch(function(\Exception $e) {
+  print_r(['POST error', $e->getMessage(), $e->getCode()]);
+});
+```
+Both will print the state object like shown above.
+
+## WebSocket Client
+Class `SharkyDog\HASS\ClientWS`
 
 
-TBC
+TBC...
