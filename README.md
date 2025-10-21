@@ -68,15 +68,15 @@ $promise = $promise->catch(function(\Exception $e) {
 
 // === POST ===
 $hass->POST(
-    'states/input_boolean.test_toggle',
-    (object)['state' => 'on']
+    'template',
+    (object)['template' => 'Toggle is {{ states("input_boolean.test_toggle") }}']
 )->then(function($result) {
   print_r($result);
 })->catch(function(\Exception $e) {
   print_r(['POST error', $e->getMessage(), $e->getCode()]);
 });
 ```
-Both will print the state object like shown above.
+First (GET) will print the state object like shown above. Second (POST) renders a template and will print plain text.
 
 ## WebSocket Client
 Class `SharkyDog\HASS\ClientWS`
