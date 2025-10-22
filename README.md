@@ -94,6 +94,43 @@ First (GET) will print the state object like shown above. Second (POST) renders 
 
 ## WebSocket Client
 Class `SharkyDog\HASS\ClientWS`
+```php
+public function __construct(string $url, string $token);
+public function setDefaultTimeout(int $timeout);
+public function setDefaultSilent(bool $silent);
+public function connected(): bool;
 
+public function subscribe(callable $callback, \stdClass $data): int;
+public function subscribeEvent(callable $callback, string $event): int;
+public function subscribeTrigger(callable $callback, \stdClass ...$triggers): int;
+public function unsubscribe(int $sid): Promise\PromiseInterface;
 
+public function sendCommand(
+    \stdClass $data,
+    ?int $timeout=null,
+    ?bool $silent=null
+): Promise\PromiseInterface;
+
+public function fireEvent(
+    string $event,
+    ?\stdClass $data=null
+): Promise\PromiseInterface;
+
+public function callService(
+    string $service,
+    ?\stdClass $target=null,
+    ?\stdClass $data=null,
+    bool $resp=false
+): Promise\PromiseInterface;
+```
+- Timeout and silencing errors work the same as in the REST client
+- Subscribe methods return an id to be used in `unsubscribe()`, these can also be used when client is not connected.
+  Subscriptions will be reestablished on reconnect.
+- `connected()` will return `true` only after auth phase passed
+  - There is also `open` event, more on that bellow
+- Sending commands is possible only when connected, they will reject otherwise.
+  Except `unsubscribe()`, when offline it will remove the subscription and resolve with `null`
+
+### Events
 TBC...
+  
