@@ -6,6 +6,7 @@ use React\Promise;
 class ClientREST {
   private $_client = null;
   private $_reqTmo = 60;
+  private $_reqSilent = false;
 
   public function __construct(string $url, string $token) {
     $this->_client = new HTTP\Client($url, ['Authorization' => 'Bearer '.$token]);
@@ -16,7 +17,11 @@ class ClientREST {
     $this->_reqTmo = max(0, $timeout);
   }
 
-  private function _request($request, $timeout) {
+  public function setDefaultSilent(bool $silent) {
+    $this->_reqSilent = $silent;
+  }
+
+  private function _request($request, $timeout, $silent) {
     $timer = HTTP\Timer::noop();
     $timeout = $timeout!==null ? max(0, $timeout) : $this->_reqTmo;
     $aborted = false;
@@ -58,20 +63,26 @@ class ClientREST {
       $deferred->reject(new \Exception('Connection refused'));
     });
 
-    return $deferred->promise()->finally(function() use($timer) {
+    $pr = $deferred->promise();
+
+    if($silent ?? $this->_reqSilent) {
+      $pr = $pr->catch(fn()=>null);
+    }
+
+    return $pr->finally(function() use($timer) {
       $timer->cancel();
     });
   }
 
-  public function GET(string $endpoint, ?int $timeout=null): Promise\PromiseInterface {
-    return $this->_request($this->_client->GET($this->_client->path().$endpoint), $timeout);
+  public function GET(string $endpoint, ?int $timeout=null, ?bool $silent=null): Promise\PromiseInterface {
+    return $this->_request($this->_client->GET($this->_client->path().$endpoint), $timeout, $silent);
   }
 
-  public function POST(string $endpoint, ?\stdClass $data=null, ?int $timeout=null): Promise\PromiseInterface {
+  public function POST(string $endpoint, ?\stdClass $data=null, ?int $timeout=null, ?bool $silent=null): Promise\PromiseInterface {
     return $this->_request($this->_client->POST(
       $data ? json_encode($data) : '',
       $this->_client->path().$endpoint,
       $data ? ['Content-Type' => 'application/json'] : []
-    ), $timeout);
+    ), $timeout, $silent);
   }
 }

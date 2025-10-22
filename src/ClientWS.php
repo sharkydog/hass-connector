@@ -11,6 +11,7 @@ class ClientWS extends WsClientDecorator {
   private $_cmdId = 0;
   private $_cmdTmo = 60;
   private $_cmdSent = [];
+  private $_cmdSilent = false;
   private $_listen = [];
   private $_listenId = [];
 
@@ -97,7 +98,7 @@ class ClientWS extends WsClientDecorator {
     $this->ws->send(json_encode($msg));
   }
 
-  private function _sendCmd($data, $timeout=null) {
+  private function _sendCmd($data, $timeout=null, $silent=null) {
     if(!$this->connected()) {
       return Promise\reject(new \Exception('Not connected'));
     }
@@ -118,7 +119,13 @@ class ClientWS extends WsClientDecorator {
 
     $this->_send($data);
 
-    return $this->_cmdSent[$id]['def']->promise();
+    $pr = $this->_cmdSent[$id]['def']->promise();
+
+    if($silent ?? $this->_cmdSilent) {
+      $pr = $pr->catch(fn()=>null);
+    }
+
+    return $pr;
   }
 
   private function _rejectCmd($id, $e) {
@@ -150,6 +157,10 @@ class ClientWS extends WsClientDecorator {
     $this->_cmdTmo = max(0, $timeout);
   }
 
+  public function setDefaultSilent(bool $silent) {
+    $this->_cmdSilent = $silent;
+  }
+
   public function connected(): bool {
     return $this->_authOk;
   }
@@ -169,8 +180,8 @@ class ClientWS extends WsClientDecorator {
     return $sid;
   }
 
-  public function sendCommand(\stdClass $data, ?int $timeout=null): Promise\PromiseInterface {
-    return $this->_sendCmd($data, $timeout)->then(fn($msg) => $msg->result??null);
+  public function sendCommand(\stdClass $data, ?int $timeout=null, ?bool $silent=null): Promise\PromiseInterface {
+    return $this->_sendCmd($data, $timeout, $silent)->then(fn($msg) => $msg->result??null);
   }
 
   public function subscribeEvent(callable $callback, string $event): int {
