@@ -39,13 +39,27 @@ Class `SharkyDog\HASS\ClientREST`
 ```php
 public function __construct(string $url, string $token);
 public function setDefaultTimeout(int $timeout);
-public function GET(string $endpoint, ?int $timeout=null): React\Promise\PromiseInterface;
-public function POST(string $endpoint, ?\stdClass $data=null, ?int $timeout=null): React\Promise\PromiseInterface;
+public function setDefaultSilent(bool $silent);
+
+public function GET(
+    string $endpoint,
+    ?int $timeout=null,
+    ?bool $silent=null
+): Promise\PromiseInterface;
+
+public function POST(
+    string $endpoint,
+    ?\stdClass $data=null,
+    ?int $timeout=null,
+    ?bool $silent=null
+): Promise\PromiseInterface;
 ```
-- $url is the base rest api url - `http://192.168.1.123:8123/api`
-- $endpoint is path after `/api/` in docs above - `states/<entity_id>`
-- $timeout is in seconds, can be 0 to wait forwever
-- $data is a `\stdClass` with the same structure as required for the endpoint, shown as json in docs
+- `$url` is the base rest api url - `http://192.168.1.123:8123/api`
+- `$endpoint` is path after `/api/` in docs above - `states/<entity_id>`
+- `$timeout` is in seconds, can be 0 to wait forever, default 60s
+- `$data` is a `\stdClass` with the same structure as required for the endpoint, shown as json in docs
+- `$silent` will silence errors, `catch(fn()=>null)` will be used on the promise if `$silent==true`,
+  so the returned promise will be resolved with `null` on error, default `false`
 
 Example
 ```php
