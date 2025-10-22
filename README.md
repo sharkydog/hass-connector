@@ -135,12 +135,34 @@ public function callService(
 - Sending commands is possible only when connected, they will reject otherwise.
   Except `unsubscribe()`, when offline it will remove the subscription and resolve with `null`
 
+```php
+use SharkyDog\HASS;
+
+$url = 'http://192.168.1.123:8123/api';
+$token = 'xxxxxxx';
+$hassWS = new HASS\ClientWS($url, $token);
+// reconnects are disabled by default
+// this will tell the client to reconnect 10 seconds after remote connection close
+$hassWS->reconnect(10);
+
+// client event
+$hassWS->on('open', function() use($hassWS) {
+    print_r(['open',$hassWS->hassVer]);
+    // send commands, fire events, call services
+});
+
+// setup subscriptions
+// will also work after connect() call
+// as subscriptions will be send after connect or reconnect
+// and client will not transition to connected
+// until execution is passed to the event loop
+// and connection is established and auth succeeds
+
+$hassWS->connect();
+```
+
 ### Events
 Events are emitted using [Evenement\EventEmitter](https://github.com/igorw/evenement/tree/v3.0.2)
-```php
-$emitter->on('event', function(...$args) {
-    // stuff
-});
 ```
 `event` [`parameter1`, `parameter2`, ...]
 - `open`
@@ -156,12 +178,13 @@ $emitter->on('event', function(...$args) {
 
 ### subscribe()
 Create a general subscription.
-Besides `subscribe_events` and `subscribe_trigger`, there are other undocumented types, this method allows subscribing for such messages. Find out types and message structure by peeking into communication between Home Assistant frontend and core using your browser and a developer console.
+Besides `subscribe_events` and `subscribe_trigger`, there are other undocumented types, this method allows subscribing for such messages.
+Find out types and message structure by peeking into communication between Home Assistant frontend and core using your browser's developer console.
 
 Monitor entity state
 ```php
 $entity = 'input_boolean.test_toggle';
-$sid = $hassWS->subscribe(function($data) use($entity) {
+$sid = $hassWS->subscribe(function(\stdClass $data) use($entity) {
     $states = $data->event->states->$entity;
     print_r([
         date('Y-m-d\TH:i:s', (int)$states[0]->lu),
@@ -178,5 +201,56 @@ $sid = $hassWS->subscribe(function($data) use($entity) {
 ```
 
 ### subscribeEvent()
+Calls `subscribe()` for type `subscribe_events` and supplied `event_type`.
+Callback receives `$data->event->data` and `$data->event->time_fired`.
+```php
+$sid1 = $hassWS->subscribeEvent(function(\stdClass $event_data, string $time_fired) {
+    print_r(['event test', $event_data, $time_fired]);
+}, 'test');
+```
+
+### subscribeTrigger()
+Calls `subscribe()` for type `subscribe_trigger` and supplied triggers.
+Triggers are `\stdClass` object with the same structure as automation triggers.
+Callback receives `$data->event->variables`.
+```php
+$sid2 = $hassWS->subscribeTrigger(
+    function($vars) {
+        print_r([
+            $vars->trigger->id,
+            $vars->trigger->entity_id,
+            $vars->trigger->from_state->state,
+            $vars->trigger->to_state->state
+        ]);
+    },
+    (object)[
+        'id' => 'tg1',
+        'platform' => 'state',
+        'entity_id' => 'input_boolean.test_toggle',
+        'from' => 'off',
+        'to' => 'on'
+    ],
+    (object)[
+        'id' => 'tg2',
+        'platform' => 'state',
+        'entity_id' => ['input_boolean.test_toggle','input_boolean.test_toggle_2'],
+        'to' => ['on','off'],
+        'for' => '00:00:02'
+    ]
+);
+```
+
+### unsubscribe()
+Remove a subscription
+```php
+// this returns a promise
+// use either setDefaultSilent() or attach rejection handlers
+// to avoid unhandled rejections if unsubscribe fails
+$hassWS->unsubscribe($sid1);
+// silence this one
+$hassWS->unsubscribe($sid2)->catch(fn()=>null);
+```
+
+### sendCommand()
 
 TBC...
