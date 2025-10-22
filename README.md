@@ -93,6 +93,10 @@ $hass->POST(
 First (GET) will print the state object like shown above. Second (POST) renders a template and will print plain text.
 
 ## WebSocket Client
+Extends `SharkyDog\HTTP\Helpers\WsClientDecorator`, which decorates `SharkyDog\HTTP\WebSocket\Client` from [sharkydog/http](https://github.com/sharkydog/http) package.
+Some methods, events and reconnect logic are inherited from these classes.
+See the [websocket client example](https://github.com/sharkydog/http/blob/main/examples/08-websocket-client.php)
+
 Class `SharkyDog\HASS\ClientWS`
 ```php
 public function __construct(string $url, string $token);
@@ -132,5 +136,47 @@ public function callService(
   Except `unsubscribe()`, when offline it will remove the subscription and resolve with `null`
 
 ### Events
+Events are emitted using [Evenement\EventEmitter](https://github.com/igorw/evenement/tree/v3.0.2)
+```php
+$emitter->on('event', function(...$args) {
+    // stuff
+});
+```
+`event` [`parameter1`, `parameter2`, ...]
+- `open`
+  - Client connected and auth phase passed
+- `close` [`bool $reconnect`]
+  - Connection close, will try to reconnect if `$reconnect==true`, all pending commands will be rejected
+- `subscribed` [`int $sid`]
+  - Subscription with id `$sid` registered
+- `error-auth` [`string $message`]
+  - Error in auth phase, connection will be closed
+- `error-subscribe` [`\Exception $e`, `int $sid`]
+  - Subscription with id `$sid` failed
+
+### subscribe()
+Create a general subscription.
+Besides `subscribe_events` and `subscribe_trigger`, there are other undocumented types, this method allows subscribing for such messages. Find out types and message structure by peeking into communication between Home Assistant frontend and core using your browser and a developer console.
+
+Monitor entity state
+```php
+$entity = 'input_boolean.test_toggle';
+$sid = $hassWS->subscribe(function($data) use($entity) {
+    $states = $data->event->states->$entity;
+    print_r([
+        date('Y-m-d\TH:i:s', (int)$states[0]->lu),
+        $states[0]->s
+    ]);
+}, (object)[
+    'type' => 'history/stream',
+    'entity_ids' => [$entity],
+    'start_time' => gmdate('Y-m-d\TH:i:s\Z'),
+    'minimal_response' => true,
+    'significant_changes_only' => false,
+    'no_attributes' => true
+]);
+```
+
+### subscribeEvent()
+
 TBC...
-  
