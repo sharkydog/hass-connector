@@ -42,17 +42,53 @@ class ClientWS extends WsClientDecorator {
     }
 
     if(!$this->_authOk) {
-      if($msg->type == 'auth_ok') {
+      $type = $msg->type ?? null;
+
+      if($type == 'auth_ok') {
         $this->_authOk = true;
         $this->hassVer = $msg->ha_version;
+
+        $this->_sendCmd((object)[
+          'type' => 'supported_features',
+          'features' => (object)[
+            'coalesce_messages' => 1
+          ]
+        ], 0, true);
+
         $this->_emit('open');
-      } else if($msg->type == 'auth_invalid') {
+      } else if($type == 'auth_invalid') {
         $this->_emit('error-auth', [$msg->message]);
         $this->close();
+      } else if(!$type) {
+        $this->_emit('error-auth', ['Invalid auth message, missing "type"']);
+        $this->close();
       }
+
       return;
     }
 
+    foreach((is_array($msg) ? $msg : [$msg]) as $_msg) {
+      $this->_recv($_msg);
+    }
+  }
+
+  protected function _event_close(bool $reconnect) {
+    $this->_authOk = false;
+    $this->_cmdId = 0;
+    $this->_listenId = [];
+
+    $e = new \Exception('Connection closed');
+    foreach(array_keys($this->_cmdSent) as $id) {
+      $this->_rejectCmd($id, $e);
+    }
+
+    $this->_emit('close', [$reconnect]);
+  }
+
+  public function send() {
+  }
+
+  private function _recv($msg) {
     if(!($id = $msg->id??null)) {
       return;
     }
@@ -76,22 +112,6 @@ class ClientWS extends WsClientDecorator {
     unset($this->_cmdSent[$id]);
 
     $def->resolve($msg);
-  }
-
-  protected function _event_close(bool $reconnect) {
-    $this->_authOk = false;
-    $this->_cmdId = 0;
-    $this->_listenId = [];
-
-    $e = new \Exception('Connection closed');
-    foreach(array_keys($this->_cmdSent) as $id) {
-      $this->_rejectCmd($id, $e);
-    }
-
-    $this->_emit('close', [$reconnect]);
-  }
-
-  public function send() {
   }
 
   private function _send($msg) {
