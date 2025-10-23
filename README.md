@@ -134,6 +134,7 @@ public function callService(
   - There is also `open` event, more on that bellow
 - Sending commands is possible only when connected, they will reject otherwise.
   Except `unsubscribe()`, when offline it will remove the subscription and resolve with `null`
+- `fireEvent()` and `callService()`, do not have `$timeout` and `$silent` parameters. They will use default values.
 
 ```php
 use SharkyDog\HASS;
@@ -163,7 +164,7 @@ $hassWS->connect();
 
 ### Events
 Events are emitted using [Evenement\EventEmitter](https://github.com/igorw/evenement/tree/v3.0.2)
-```
+
 `event` [`parameter1`, `parameter2`, ...]
 - `open`
   - Client connected and auth phase passed
@@ -202,7 +203,9 @@ $sid = $hassWS->subscribe(function(\stdClass $data) use($entity) {
 
 ### subscribeEvent()
 Calls `subscribe()` for type `subscribe_events` and supplied `event_type`.
+
 Callback receives `$data->event->data` and `$data->event->time_fired`.
+
 ```php
 $sid1 = $hassWS->subscribeEvent(function(\stdClass $event_data, string $time_fired) {
     print_r(['event test', $event_data, $time_fired]);
@@ -211,8 +214,10 @@ $sid1 = $hassWS->subscribeEvent(function(\stdClass $event_data, string $time_fir
 
 ### subscribeTrigger()
 Calls `subscribe()` for type `subscribe_trigger` and supplied triggers.
+
 Triggers are `\stdClass` object with the same structure as automation triggers.
 Callback receives `$data->event->variables`.
+
 ```php
 $sid2 = $hassWS->subscribeTrigger(
     function($vars) {
@@ -252,5 +257,57 @@ $hassWS->unsubscribe($sid2)->catch(fn()=>null);
 ```
 
 ### sendCommand()
+Send a command, overwrite default timeout and silence option.
+```php
+$promise = $hassWS->sendCommand((object)[
+    'type' => 'auth/current_user'
+], 5, true);
+$promise->then(function(?\stdClass $result) {
+    print_r($result);
+})->catch(function(\Exception $e) {
+    print_r(['user err', $e->getMessage(), $e->getCode()]);
+});
+```
 
-TBC...
+### fireEvent()
+Fire event `test`.
+```php
+$promise = $hassWS->fireEvent('test', (object)[
+    'a' => 'b',
+    'c' => [
+        (object)['d'=>'e'],
+        (object)['f'=>'g', 'h'=>'i']
+    ]
+]);
+```
+In Home Assistant developer tools, it would look like this in yaml
+```yaml
+event_type: test
+data:
+  a: b
+  c:
+    - d: e
+    - f: g
+      h: i
+```
+
+### callService()
+Call a service with response.
+For services that do not return response, the 4th parameter must be `false` (default).
+Home Assistant will return and error when calling a service and expecting response, but the service do not return one.
+```php
+$hassWS->callService(
+    'media_player.browse_media',
+    (object)[
+        'entity_id' => 'media_player.player_that_can_browse_media'
+    ],
+    (object)[
+        'media_content_id' => 'media-source://media_source'
+    ],
+    true
+)->then(function(?\stdClass $responce) {
+    print_r($responce);
+})->catch(function(\Exception $e) {
+    print_r(['svc err', $e->getMessage(), $e->getCode()]);
+});
+```
