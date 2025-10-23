@@ -305,8 +305,8 @@ $hassWS->callService(
         'media_content_id' => 'media-source://media_source'
     ],
     true
-)->then(function(?\stdClass $responce) {
-    print_r($responce);
+)->then(function(?\stdClass $response) {
+    print_r($response);
 })->catch(function(\Exception $e) {
     print_r(['svc err', $e->getMessage(), $e->getCode()]);
 });
