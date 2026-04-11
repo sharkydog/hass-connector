@@ -139,7 +139,7 @@ public function callService(
 ```php
 use SharkyDog\HASS;
 
-$url = 'http://192.168.1.123:8123/api';
+$url = 'http://192.168.1.123:8123/api/websocket';
 $token = 'xxxxxxx';
 $hassWS = new HASS\ClientWS($url, $token);
 // reconnects are disabled by default
